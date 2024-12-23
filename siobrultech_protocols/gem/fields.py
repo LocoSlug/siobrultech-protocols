@@ -105,21 +105,50 @@ class DateTimeField(Field):
         super().__init__(size=6)
 
     def read(self, buffer: bytes, offset: int) -> datetime:
-        year, month, day, hour, minute, second = buffer[offset : offset + self.size]
-        return datetime(2000 + year, month, day, hour, minute, second)
+        """Read a datetime from the buffer, return current datetime if an error occurs.
+
+        Args:
+            buffer (bytes): The byte buffer to read from.
+            offset (int): The starting position in the buffer.
+
+        Returns:
+            datetime: A datetime object representing the date and time or the current datetime if there's an error.
+        """
+        try:
+            if offset + self.size > len(buffer):
+                raise ValueError("Buffer does not contain enough bytes for a DateTimeField")
+
+            year, month, day, hour, minute, second = buffer[offset:offset + self.size]
+            actual_year = 2000 + year
+            return datetime(actual_year, month, day, hour, minute, second)
+        except (ValueError, IndexError):
+            return datetime.now()
 
     def write(self, value: datetime, buffer: bytearray) -> None:
-        buffer.extend(
-            [
+        """Write a datetime to the buffer, return current datetime if an error occurs.
+
+        Args:
+            value (datetime): The datetime object to write.
+            buffer (bytearray): The buffer to write to.
+
+        Returns:
+            datetime: The current datetime if there's an error during writing, otherwise None.
+        """
+        try:
+            if value.year < 2000 or value.year > 2255:
+                raise ValueError("Year must be between 2000 and 2255 for this DateTimeField")
+
+            buffer.extend([
                 value.year - 2000,
                 value.month,
                 value.day,
                 value.hour,
                 value.minute,
-                value.second,
-            ]
-        )
-
+                value.second
+            ])
+        except (ValueError, OverflowError):
+            return datetime.now()
+            
 
 class ArrayField(Field):
     def __init__(self, num_elems: int, elem_field: Field):
